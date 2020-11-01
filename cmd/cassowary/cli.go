@@ -121,7 +121,7 @@ func validateCLI(c *cli.Context) error {
 		}
 	}
 
-	if client.IsValidURL(c.String("url")) == false {
+	if !client.IsValidURL(c.String("url")) {
 		return errNotValidURL
 	}
 
