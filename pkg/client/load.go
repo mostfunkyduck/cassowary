@@ -106,8 +106,10 @@ func (c *Cassowary) runLoadTest(outPutChan chan<- durationMetrics, workerChan ch
 			resp.Body.Close()
 		}
 
-		if c.DisableTerminalOutput != true {
-			c.Bar.Add(1)
+		if !c.DisableTerminalOutput {
+			if err := c.Bar.Add(1); err != nil {
+				fmt.Println("Failed to add to progress bar", err)
+			}
 		}
 
 		// Body fully read here
@@ -170,7 +172,7 @@ func (c *Cassowary) Coordinate() (ResultMetrics, error) {
 
 	c.Bar = progressbar.New(c.Requests)
 
-	if c.DisableTerminalOutput != true {
+	if !c.DisableTerminalOutput {
 		col := color.New(color.FgCyan).Add(color.Underline)
 		col.Printf("\nStarting Load Test with %d requests using %d concurrent users\n\n", c.Requests, c.ConcurrencyLevel)
 	}
@@ -201,7 +203,7 @@ func (c *Cassowary) Coordinate() (ResultMetrics, error) {
 				select {
 				case <-done:
 					return
-				case _ = <-ticker.C:
+				case <-ticker.C:
 					if c.FileMode {
 						workerChan <- c.URLPaths[iter]
 						iter++
@@ -232,7 +234,7 @@ func (c *Cassowary) Coordinate() (ResultMetrics, error) {
 	close(channel)
 
 	end := time.Since(start)
-	if c.DisableTerminalOutput != true {
+	if !c.DisableTerminalOutput {
 		fmt.Println(end)
 	}
 

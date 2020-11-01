@@ -12,7 +12,9 @@ import (
 func TestLoadCoordinate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
-		w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			t.Error(err)
+		}
 	}))
 	defer srv.Close()
 
@@ -44,7 +46,9 @@ func TestLoadCoordinate(t *testing.T) {
 func TestLoadCoordinateURLPaths(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
-		w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			t.Error(err)
+		}
 	}))
 	defer srv.Close()
 
@@ -80,7 +84,9 @@ func TestLoadCoordinateURLPaths(t *testing.T) {
 func TestCoordinateTLSConfig(t *testing.T) {
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
-		w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			t.Error(err)
+		}
 	}))
 
 	pemCerts, err := ioutil.ReadFile("testdata/ca.pem")
