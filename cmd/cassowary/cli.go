@@ -7,14 +7,19 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
+	"os/exec"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/fatih/color"
+	"github.com/hashicorp/go-plugin"
 	"github.com/rogerwelin/cassowary/pkg/client"
 	"github.com/urfave/cli/v2"
+
+	hclog "github.com/hashicorp/go-hclog"
 )
 
 var (
@@ -319,9 +324,65 @@ func runCLI(args []string) {
 		},
 	}
 
+	if err := initPlugins(); err != nil {
+		log.Fatalf("error initializing plugins: %s\n", err)
+	}
 	err := app.Run(args)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(0)
+		log.Fatalf("error running application: %s\n", err)
 	}
+}
+
+func initPlugins() error {
+	// Create an hclog.Logger
+	logger := hclog.New(&hclog.LoggerOptions{
+		Name:   "plugin",
+		Output: os.Stdout,
+		Level:  hclog.Debug,
+	})
+
+	// From example in docs:
+	// handshakeConfigs are used to just do a basic handshake between
+	// a plugin and host. If the handshake fails, a user friendly error is shown.
+	// This prevents users from executing bad plugins or executing a plugin
+	// directory. It is a UX feature, not a security feature.
+
+	handshakeConfig := plugin.HandshakeConfig{
+		ProtocolVersion:  1,
+		MagicCookieKey:   "BASIC_PLUGIN",
+		MagicCookieValue: "hello",
+	}
+
+	pluginMap := map[string]plugin.Plugin{
+		"plugin": &client.PluginImpl{},
+	}
+
+	c := plugin.NewClient(&plugin.ClientConfig{
+		HandshakeConfig: handshakeConfig,
+		Plugins:         pluginMap,
+		Cmd:             exec.Command("./plugin/plugin"),
+		Logger:          logger,
+	})
+	defer c.Kill()
+
+	// Connect via RPC
+	rpcClient, err := c.Client()
+	if err != nil {
+		return fmt.Errorf("could not build rpc client: %s", err)
+	}
+
+	// Request the plugin
+	pluginName := "plugin"
+	raw, err := rpcClient.Dispense(pluginName)
+	if err != nil {
+		return fmt.Errorf("could not dispense rpc request to %s: %s", pluginName, err)
+	}
+
+	// We should have a Greeter now! This feels like a normal interface
+	// implementation but is in fact over an RPC connection.
+	plugin := raw.(client.Plugin)
+	if errString := plugin.Init(); errString != "" {
+		return fmt.Errorf("plugin returned error: %s", errString)
+	}
+	return nil
 }
